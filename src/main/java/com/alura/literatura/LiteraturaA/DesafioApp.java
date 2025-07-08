@@ -6,8 +6,9 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-
+import com.alura.literatura.LiteraturaA.model.Autor;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.Scanner;
 
 @SpringBootApplication
@@ -24,7 +25,9 @@ public class DesafioApp {
             int opcion = -1;
 
             while (opcion != 0) {
-                System.out.println("\nElija la opción a través de su número:");
+                System.out.println("\n==============================");
+                System.out.println("      MENÚ LITERAlura");
+                System.out.println("==============================");
                 System.out.println("1 - Buscar libro por título");
                 System.out.println("2 - Listar libros registrados");
                 System.out.println("3 - Listar autores registrados");
@@ -32,72 +35,120 @@ public class DesafioApp {
                 System.out.println("5 - Listar libros por idioma");
                 System.out.println("6 - Ver top 10 libros más descargados");
                 System.out.println("0 - Salir");
+                System.out.print("Ingrese el número de la opción deseada: ");
 
+                String entrada = scanner.nextLine().trim();
                 try {
-                    opcion = Integer.parseInt(scanner.nextLine());
+                    opcion = Integer.parseInt(entrada);
                 } catch (NumberFormatException e) {
-                    System.out.println("Por favor ingresa un número válido.");
+                    System.out.println("Por favor ingrese un número válido (0-6).");
                     continue;
                 }
 
                 switch (opcion) {
-                    case 1 -> {                                           // buscar libro
-                        System.out.print("Ingrese el nombre del libro: ");
-                        String titulo = scanner.nextLine();
+                    /* 1 ── BUSCAR LIBRO ───────────────────────────────── */
+                    case 1 -> {
+                        System.out.print("Ingrese el título a buscar: ");
+                        String titulo = scanner.nextLine().trim();
+
                         Libro libro = libroService.buscarLibroEnApiYGuardar(titulo);
-                        if (libro != null) {
-                            System.out.println("\n----- LIBRO ENCONTRADO -----");
-                            System.out.println("Título:   " + libro.getTitulo());
-                            System.out.println("Autor:    " + (libro.getAutor()!=null?libro.getAutor().getNombre():"─"));
-                            System.out.println("Idioma:   " + libro.getIdioma());
-                            System.out.println("Descargas:" + libro.getDescargas());
+
+                        if (libro == null) {
+                            System.out.println("No se encontró ningún libro con ese título.");
                         } else {
-                            System.out.println("⚠️  No se encontró el libro o ya estaba registrado.");
+                            System.out.println("\n----- LIBRO ENCONTRADO -----");
+                            System.out.println("Título:    " + libro.getTitulo());
+                            System.out.println("Autor:     " + (libro.getAutor() != null
+                                    ? libro.getAutor().getNombre() : "─"));
+                            System.out.println("Idioma:    " + libro.getIdioma());
+                            System.out.println("Descargas: " + libro.getDescargas());
                         }
                     }
 
-                    case 2 -> {                                           // listar libros
-                        List<Libro> libros = libroService.listarLibros();
-                        System.out.println("\nSe han registrado " + libros.size() + " libros:");
-                        libros.forEach(l -> System.out.println("• " + l.getTitulo() + " (" + l.getIdioma() + ")"));
+                    /* 2 ── LISTAR LIBROS REGISTRADOS ─────────────────── */
+                    case 2 -> {
+                        var libros = libroService.listarLibros();
+                        System.out.println("\nTotal de libros registrados: " + libros.size());
+                        libros.forEach(l -> System.out.println(
+                                "• " + l.getTitulo()
+                                        + " - " + (l.getAutor() != null ? l.getAutor().getNombre() : "─")
+                                        + " (" + l.getIdioma() + ")"));
                     }
 
-                    case 3 -> {                                           // listar autores
-                        var autores = libroService.listarAutores();
-                        System.out.println("\nSe han registrado " + autores.size() + " autores:");
-                        autores.forEach(a -> System.out.println("• " + a.getNombre()));
+                    /* 3 ── LISTAR AUTORES REGISTRADOS ────────────────── */
+                    case 3 -> {
+                        List<Autor> autores = libroService.listarAutores();
+                        System.out.println("\nTotal de autores registrados: " + autores.size());
+
+                        for (Autor autor : autores) {
+                            String nombre = autor.getNombre();
+                            String nacimiento = (autor.getFechaNacimiento() != null)
+                                    ? String.valueOf(autor.getFechaNacimiento().getYear())
+                                    : "Desconocido";
+                            String fallecimiento = (autor.getFechaMuerte() != null)
+                                    ? String.valueOf(autor.getFechaMuerte().getYear())
+                                    : "Desconocido";
+
+                            String libros = autor.getLibros() != null && !autor.getLibros().isEmpty()
+                                    ? autor.getLibros().stream()
+                                    .map(Libro::getTitulo)
+                                    .collect(Collectors.joining(", ", "[", "]"))
+                                    : "[]";
+
+                            System.out.println("\nAutor: " + nombre);
+                            System.out.println("Fecha de nacimiento: " + nacimiento);
+                            System.out.println("Fecha de fallecimiento: " + fallecimiento);
+                            System.out.println("Libros: " + libros);
+                        }
                     }
 
-                    case 4 -> {                                           // autores vivos en año
+                    /* 4 ── AUTORES VIVOS EN UN AÑO ───────────────────── */
+                    case 4 -> {
                         System.out.print("Ingrese el año (YYYY): ");
-                        String texto = scanner.nextLine();
+                        String texto = scanner.nextLine().trim();
                         try {
                             int anio = Integer.parseInt(texto);
                             var vivos = libroService.autoresVivosEn(anio);
                             System.out.println("\nAutores vivos en " + anio + ": " + vivos.size());
                             vivos.forEach(a -> System.out.println("• " + a.getNombre()));
                         } catch (NumberFormatException e) {
-                            System.out.println("⚠️  Año inválido.");
+                            System.out.println("Año inválido.");
                         }
                     }
 
-                    case 5 -> {                                           // libros por idioma
-                        System.out.print("Ingrese código de idioma (ej: en, es, fr): ");
+                    /* 5 ── LIBROS POR IDIOMA ─────────────────────────── */
+                    case 5 -> {
+                        System.out.print("Ingrese el código de idioma (ej. en, es, fr): ");
                         String lang = scanner.nextLine().trim();
-                        var porIdioma = libroService.listarLibrosPorIdioma(lang);
-                        System.out.println("\nLibros en '" + lang + "': " + porIdioma.size());
-                        porIdioma.forEach(l -> System.out.println("• " + l.getTitulo()));
+
+                        var lista = libroService.listarLibrosPorIdioma(lang);
+                        System.out.println("\nLibros en '" + lang + "': " + lista.size());
+
+                        lista.forEach(l -> System.out.println(
+                                "• " + l.getTitulo()
+                                        + " - " + (l.getAutor() != null ? l.getAutor().getNombre() : "─")));
                     }
 
-                    case 6 -> {                                           // top-10 Gutendex
+                    /* 6 ── TOP-10 DESCARGAS GUTENDEX ─────────────────── */
+                    case 6 -> {
                         var top = libroService.mostrarTop10();
-                        System.out.println("\nTOP 10 libros más descargados en Gutendex:");
-                        top.forEach(b -> System.out.println(
-                                "• " + b.title() + " (" + b.downloadCount() + " descargas)"));
+                        if (top.isEmpty()) {
+                            System.out.println("No se pudo obtener el top 10 de Gutendex.");
+                        } else {
+                            System.out.println("\nTOP 10 libros más descargados:");
+                            top.forEach(b -> System.out.println("• " + b.title()
+                                    + " (" + b.downloadCount() + " descargas)"));
+                        }
                     }
 
-                    case 0 -> System.out.println("Saliendo…");
-                    default -> { /* si no coincide con ninguno, no hacemos nada */ }
+                    /* 0 ── SALIR ─────────────────────────────────────── */
+                    case 0 -> {
+                        System.out.println("¡Hasta luego!");
+                        System.exit(0);
+                    }
+
+
+                    default -> System.out.println("Opción no válida. Intente de nuevo.");
                 }
             }
         };

@@ -15,7 +15,7 @@ public class AutorService {
     private AutorRepository autorRepository;
 
     public List<Autor> listarAutores() {
-        return autorRepository.findAll();
+        return autorRepository.findAllConLibros();
     }
 
     public long contarAutores() {

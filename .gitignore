@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Ignorar archivo con datos sensibles
+src/main/resources/application-local.properties

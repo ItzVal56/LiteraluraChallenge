@@ -4,8 +4,8 @@ import com.alura.literatura.LiteraturaA.model.Autor;
 import com.alura.literatura.LiteraturaA.model.Libro;
 import com.alura.literatura.LiteraturaA.repository.AutorRepository;
 import com.alura.literatura.LiteraturaA.repository.LibroRepository;
-import com.alura.literatura.LiteraturaA.service.service.dto.GutendexBook;      // ← OJO: paquete correcto
-import com.alura.literatura.LiteraturaA.service.service.dto.GutendexResponse; // ← OJO: paquete correcto
+import com.alura.literatura.LiteraturaA.service.service.dto.GutendexBook;      // ← paquete DTO correcto
+import com.alura.literatura.LiteraturaA.service.service.dto.GutendexResponse; // ← paquete DTO correcto
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -19,13 +19,13 @@ import java.util.stream.Collectors;
 @Service
 public class LibroService {
 
-    /* --------------- DEPENDENCIAS ---------------- */
+    /* ------------ DEPENDENCIAS ------------ */
     private final LibroRepository libroRepository;
     private final AutorRepository autorRepository;
-    private final AutorService   autorService;       // usamos métodos de autores
-    private final WebClient web;
+    private final AutorService    autorService;
+    private final WebClient       web;
 
-    /* --------------- CONSTRUCTOR ----------------- */
+    /* ------------ CONSTRUCTOR ------------- */
     public LibroService(LibroRepository libroRepository,
                         AutorRepository autorRepository,
                         AutorService autorService) {
@@ -38,16 +38,16 @@ public class LibroService {
     }
 
     /* =========================================================
-       1. Buscar un libro en Gutendex y guardarlo si no existe
+       1. Buscar libro en Gutendex y guardar si no existe
        ========================================================= */
     @Transactional
     public Libro buscarLibroEnApiYGuardar(String tituloBuscado) {
 
-        // ¿Ya existe en BD?
+        /* 1-A.  ¿Ya existe tal cual lo escribió el usuario? */
         Optional<Libro> dup = libroRepository.findByTituloIgnoreCase(tituloBuscado.trim());
-        if (dup.isPresent()) return dup.get();
+        if (dup.isPresent()) return dup.get();   // devuelve la entidad encontrada
 
-        // Llamar a Gutendex
+        /* 1-B.  Llamar a Gutendex */
         GutendexResponse resp = web.get()
                 .uri(uri -> uri.path("/books/")
                         .queryParam("search", tituloBuscado)
@@ -57,15 +57,16 @@ public class LibroService {
                 .onErrorResume(e -> Mono.empty())
                 .block();
 
-        if (resp == null || resp.results().isEmpty()) return null;      // no encontrado
+        if (resp == null || resp.results().isEmpty()) return null;   // no encontrado
 
         GutendexBook apiBook = resp.results().get(0);
         String tituloNormalizado = apiBook.title().replaceAll("\\s+", " ").trim();
 
-        // ¿Duplicado con el título normalizado?
-        if (libroRepository.findByTituloIgnoreCase(tituloNormalizado).isPresent()) return null;
+        /* 1-C.  ¿Ya existe con el título oficial devuelto? */
+        Optional<Libro> existente = libroRepository.findByTituloIgnoreCase(tituloNormalizado);
+        if (existente.isPresent()) return existente.get();           // ← CAMBIO: devuelve entidad
 
-        /* ---------- Autor ---------- */
+        /* ---------- Crear Autor si es necesario ---------- */
         Autor autorEntidad = null;
         if (apiBook.authors() != null && !apiBook.authors().isEmpty()) {
             var apiAutor = apiBook.authors().get(0);
@@ -81,7 +82,7 @@ public class LibroService {
                     });
         }
 
-        /* ---------- Libro ---------- */
+        /* ---------- Crear y guardar Libro ---------- */
         Libro libro = new Libro();
         libro.setTitulo(tituloNormalizado);
         libro.setDescargas(apiBook.downloadCount());
@@ -92,7 +93,7 @@ public class LibroService {
         return libroRepository.save(libro);
     }
 
-    /* Alias para el menú (por compatibilidad con MainConsola) */
+    /* Alias para el menú */
     public Libro buscarYGuardar(String titulo) {
         return buscarLibroEnApiYGuardar(titulo);
     }
@@ -100,38 +101,35 @@ public class LibroService {
     /* =========================================================
        2.  Listar y contar libros
        ========================================================= */
-    public List<Libro> listarLibros()               { return libroRepository.findAll(); }
-    public List<Libro> listarTodos()                { return listarLibros(); }          // alias
-    public long contarLibros()                      { return libroRepository.count();  }
+    public List<Libro> listarLibros()        { return libroRepository.findAll(); }
+    public List<Libro> listarTodos()         { return listarLibros(); }
+    public long contarLibros()               { return libroRepository.count();  }
 
     /* =========================================================
        3.  Listar / contar por idioma
        ========================================================= */
-    public List<Libro> listarLibrosPorIdioma(String idioma) {       // alias para MainConsola
+    public List<Libro> listarLibrosPorIdioma(String idioma) {
         return listarPorIdioma(idioma);
     }
-
     public List<Libro> listarPorIdioma(String idioma) {
         return libroRepository.findAll().stream()
                 .filter(l -> l.getIdioma() != null && l.getIdioma().equalsIgnoreCase(idioma))
                 .collect(Collectors.toList());
     }
-
     public long contarPorIdioma(String idioma) {
         return listarPorIdioma(idioma).size();
     }
 
     /* =========================================================
-       4.  Métodos que delegan a AutorService
+       4.  Operaciones con autores (delegadas)
        ========================================================= */
-    public List<Autor> listarAutores()                 { return autorService.listarAutores(); }
-    public long contarAutores()                        { return autorService.contarAutores();  }
-
-    public List<Autor> autoresVivosEn(int anio)        { return autorService.listarAutoresVivosEn(anio); }
-    public long contarAutoresVivosEn(int anio)         { return autorService.contarAutoresVivosEn(anio); }
+    public List<Autor> listarAutores()          { return autorService.listarAutores(); }
+    public long        contarAutores()          { return autorService.contarAutores(); }
+    public List<Autor> autoresVivosEn(int y)    { return autorService.listarAutoresVivosEn(y); }
+    public long        contarAutoresVivosEn(int y){ return autorService.contarAutoresVivosEn(y); }
 
     /* =========================================================
-       5.  Top-10 más descargados desde Gutendex (sin persistir)
+       5.  Top-10 más descargados (Gutendex)
        ========================================================= */
     public List<GutendexBook> top10Descargados() {
         GutendexResponse resp = web.get()
@@ -146,9 +144,5 @@ public class LibroService {
         if (resp == null) return List.of();
         return resp.results().stream().limit(10).collect(Collectors.toList());
     }
-
-    /* Método de conveniencia para MainConsola */
-    public List<GutendexBook> mostrarTop10() {
-        return top10Descargados();
-    }
+    public List<GutendexBook> mostrarTop10() { return top10Descargados(); }
 }
