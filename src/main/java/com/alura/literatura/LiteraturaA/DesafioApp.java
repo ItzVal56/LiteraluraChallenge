@@ -98,7 +98,7 @@ public class DesafioApp {
                             System.out.println("\nAutor: " + nombre);
                             System.out.println("Fecha de nacimiento: " + nacimiento);
                             System.out.println("Fecha de fallecimiento: " + fallecimiento);
-                            System.out.println("Libros: " + libros);
+                            System.out.println("Libros del autor: " + libros);
                         }
                     }
 
@@ -143,7 +143,7 @@ public class DesafioApp {
 
                     /* 0 ── SALIR ─────────────────────────────────────── */
                     case 0 -> {
-                        System.out.println("¡Hasta luego!");
+                        System.out.println("Gracias por usar Literalura");
                         System.exit(0);
                     }
 
